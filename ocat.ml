@@ -11,16 +11,16 @@ let rec copyloop ic oc buf uflag =
       Out_channel.flush oc;
     copyloop ic oc buf uflag
 
-let escapeline line bflag =
-  match bflag with
-  | false -> false
-  | true -> String.length line = 0
-
 let rec copylines ic oc buf linenum uflag bflag =
+  (* Check if we should escape the line in question *)
+  let escape line bflag = match bflag with
+    | false -> false
+    | true -> String.length line = 0
+  in
   let line = In_channel.input_line ic
   in match line with
     | None -> ()
-    | Some line -> match escapeline line bflag with
+    | Some line -> match escape line bflag with
       | true -> copylines ic oc buf linenum uflag bflag
       | false -> Out_channel.output_string oc (sprintf "%6d  %s\n" linenum line);
         if uflag = true then
