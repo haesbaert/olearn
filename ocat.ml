@@ -13,12 +13,9 @@ let rec copyloop ic oc buf uflag =
 
 let rec copylines ic oc buf linenum uflag bflag =
   (* Check if we should escape the line in question *)
-  let escape line bflag = match bflag with
-    | false -> false
-    | true -> String.length line = 0
-  in
-  let line = In_channel.input_line ic
-  in match line with
+  let escape line bflag = bflag && String.length line = 0 in
+  let line = In_channel.input_line ic in
+  match line with
     | None -> ()
     | Some line -> match escape line bflag with
       | true -> copylines ic oc buf linenum uflag bflag
