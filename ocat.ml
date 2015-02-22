@@ -10,14 +10,16 @@ let rec copyloop ic oc buf =
     copyloop ic oc buf
 
 let do_cat file =
-  let ic = In_channel.create file in
+  let ic = match file with
+  | None | Some "-" -> In_channel.stdin
+  | Some file -> In_channel.create file in
   copyloop ic Out_channel.stdout (Bytes.create buf_size);
   In_channel.close ic
 
 let spec =
   let open Command.Spec in
   empty
-  +> anon ("filename" %: string)
+  +> anon (maybe ("filename" %: string))
 
 let command =
   Command.basic
