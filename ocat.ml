@@ -1,7 +1,9 @@
 open Core.Std
 
+let buf_size = 4096
+
 let rec copyloop ic oc buf =
-  let c = In_channel.input ic ~pos:0 ~buf:buf ~len:4096 in
+  let c = In_channel.input ic ~pos:0 ~buf:buf ~len:buf_size in
   match c with
   | 0 -> ()
   | _ -> Out_channel.output oc ~pos:0 ~buf:buf ~len:c;
@@ -9,7 +11,7 @@ let rec copyloop ic oc buf =
 
 let do_cat file =
   let ic = In_channel.create file in
-  copyloop ic Out_channel.stdout (Bytes.create 4096);
+  copyloop ic Out_channel.stdout (Bytes.create buf_size);
   In_channel.close ic
 
 let spec =
@@ -24,4 +26,4 @@ let command =
     (fun filename () -> do_cat filename)
 
 let () =
-  Command.run ~version:"omg" command
+  Command.run ~version:"1.0" command
