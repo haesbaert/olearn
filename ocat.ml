@@ -18,13 +18,14 @@ let rec copylines ic oc buf linenum =
 
 let do_cat file nflag =
   let oc = Out_channel.stdout in
+  let buf = Bytes.create buf_size in
   let ic = match file with
     | "-" -> In_channel.stdin
     | file -> In_channel.create file
   in
   let () = match nflag with
-    | false -> copyloop ic oc (Bytes.create buf_size)
-    | true  -> copylines ic oc (Bytes.create buf_size) 1
+    | false -> copyloop ic oc buf
+    | true  -> copylines ic oc buf 1
   in
   In_channel.close ic
 
