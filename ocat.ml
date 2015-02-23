@@ -13,7 +13,7 @@ let rec copyloop ic oc buf uflag =
 
 let rec copylines ic oc buf linenum uflag bflag =
   (* Check if we should escape the line in question *)
-  let process line linenum bflag =
+  let process line =
     if bflag && String.length line = 0 then
       (linenum, "\n")
     else
@@ -22,7 +22,7 @@ let rec copylines ic oc buf linenum uflag bflag =
   let line = In_channel.input_line ic in
   match line with
     | None -> ()
-    | Some line -> let (linenum,line) = process line linenum bflag in
+    | Some line -> let (linenum,line) = process line in
       Out_channel.output_string oc line;
       if uflag = true then
         Out_channel.flush oc;
