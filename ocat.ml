@@ -17,7 +17,7 @@ let rec copylines ic oc buf linenum uflag bflag =
     if bflag && String.length line = 0 then
       (linenum, "\n")
     else
-      (linenum + 1, sprintf "%6d  %s\n" linenum line)
+      (succ linenum, sprintf "%6d  %s\n" linenum line)
   in
   let line = In_channel.input_line ic in
   match line with
