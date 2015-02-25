@@ -1,46 +1,78 @@
 open Core.Std
 
-let buf_size = 4096
+let iscntrl c =
+  let c = (int_of_char c) in
+  (c >= 0 && c < 32) || c = 127
 
-let rec copyloop ic oc buf uflag =
-  let c = In_channel.input ic ~pos:0 ~buf:buf ~len:buf_size
-  in match c with
-  | 0 -> ()
-  | _ -> Out_channel.output oc ~pos:0 ~buf:buf ~len:c;
-    if uflag = true then
-      Out_channel.flush oc;
-    copyloop ic oc buf uflag
+let cntrlcharv c =
+  let c = (int_of_char c) in
+  if c = 127 then
+    '?'
+  else
+    char_of_int (c lor 0o100)
 
-let rec copylines ic oc buf linenum uflag bflag =
-  (* Check if we should escape the line in question *)
-  let process line =
-    if bflag && String.length line = 0 then
-      (linenum, "\n")
-    else
-      (succ linenum, sprintf "%6d  %s\n" linenum line)
-  in
-  let line = In_channel.input_line ic in
-  match line with
-    | None -> ()
-    | Some line -> let (linenum,line) = process line in
-      Out_channel.output_string oc line;
-      if uflag = true then
-        Out_channel.flush oc;
-      copylines ic oc buf linenum uflag bflag
+let isascii c =
+  (int_of_char c) <= 0o177
 
-let do_cat file nflag uflag bflag =
-  let nflag = if bflag = true then true else nflag in
-  let oc = Out_channel.stdout in
-  let buf = Bytes.create buf_size in
+let toascii c =
+  match isascii c with
+  | true ->  (char_of_int ((int_of_char c) land 0o177))
+  | false -> c
+
+let docat file nflag uflag bflag vflag eflag tflag sflag =
+  let nflag = bflag || nflag in
+  let vflag = eflag || tflag || vflag in
+  let ochar = Out_channel.output_char Out_channel.stdout in
+  let ostr = Out_channel.output_string Out_channel.stdout in
+  let oflush = Out_channel.flush Out_channel.stdout in
+  let bufsize = 1024 * 8 in
   let ic = match file with
     | "-" -> In_channel.stdin
     | file -> In_channel.create file
   in
-  let () = match nflag with
-    | false -> copyloop ic oc buf uflag
-    | true  -> copylines ic oc buf 1 uflag bflag
+  let rec catloop ic lnum c prev gobble =
+    match c with
+    | None -> ()
+    | Some c ->
+      let ignline = sflag && gobble && c = '\n' && prev = '\n' in
+      let gobble = prev = '\n' && c = '\n' in
+      match ignline with
+      | true -> catloop ic lnum (In_channel.input_char ic) c gobble
+      | _ ->
+        let supbln = bflag && c = '\n' && prev = '\n' in
+        if nflag && prev = '\n' && not supbln then
+          ostr (sprintf "%6d\t" lnum);
+        let () = match vflag, isascii c, (iscntrl c) with
+          | true, false, true ->
+            ostr "M-";
+            ochar '^';
+            ochar (cntrlcharv c);
+            ochar (toascii c)
+          | true, false, false ->
+            ostr "M-";
+            ochar (toascii c)
+          | _ -> match c, eflag, tflag with
+            | '\n', true, _    -> ostr "$\n"
+            | '\t', _,    true -> ostr "^I"
+            | _ -> ochar c
+        in
+        let nlnum = match c, prev, bflag with
+          | '\n', '\n', true -> lnum
+          | '\n', _, _ -> succ lnum
+          | _ -> lnum
+        in
+        catloop ic nlnum (In_channel.input_char ic) c gobble
   in
-  In_channel.close ic
+  let rec rawcatloop ic buf =
+    match In_channel.input ic ~pos:0 ~buf:buf ~len:bufsize with
+    | 0 -> ()
+    | len -> Out_channel.output Out_channel.stdout ~buf:buf ~pos:0 ~len:len;
+      if uflag = true then oflush;
+      rawcatloop ic buf
+  in
+  match bflag, nflag, vflag, sflag with
+  | false, false, false, false -> rawcatloop ic (Bytes.create bufsize)
+  | _ -> catloop ic 1 (In_channel.input_char ic) '\n' false
 
 let spec =
   let open Command.Spec in
@@ -48,13 +80,18 @@ let spec =
   +> flag "-b" no_arg ~doc:" escape empty lines, implies -n"
   +> flag "-n" no_arg ~doc:" print line numbers"
   +> flag "-u" no_arg ~doc:" unbuffered output"
+  +> flag "-v" no_arg ~doc:" display non printable characters"
+  +> flag "-e" no_arg ~doc:" implies -v, and display a $ in the EOL"
+  +> flag "-t" no_arg ~doc:" implies -v, and display tabs as ^I"
+  +> flag "-s" no_arg ~doc:" squeeze adjacent newlines"
   +> anon (maybe_with_default "-" ("filename" %: string))
 
 let command =
   Command.basic
     ~summary:"basic cat implementation."
     spec
-    (fun bflag nflag uflag filename () -> do_cat filename nflag uflag bflag)
+    (fun bflag nflag uflag vflag eflag tflag sflag filename () ->
+       docat filename nflag uflag bflag vflag eflag tflag sflag)
 
 let () =
   Command.run ~version:"1.0" command
