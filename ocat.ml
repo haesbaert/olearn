@@ -24,7 +24,6 @@ let docat file nflag uflag bflag vflag eflag tflag sflag =
   let vflag = eflag || tflag || vflag in
   let ochar = Out_channel.output_char Out_channel.stdout in
   let ostr = Out_channel.output_string Out_channel.stdout in
-  let oflush = Out_channel.flush Out_channel.stdout in
   let bufsize = 1024 * 8 in
   let ic = match file with
     | "-" -> In_channel.stdin
@@ -63,14 +62,14 @@ let docat file nflag uflag bflag vflag eflag tflag sflag =
           | true, true -> lnum
           | true, false -> succ lnum
         in
-        if uflag then oflush;
+        if uflag then Out_channel.(flush stdout);
         catloop ic nlnum (In_channel.input_char ic) c gobble
   in
   let rec rawcatloop ic buf =
     match In_channel.input ic ~pos:0 ~buf:buf ~len:bufsize with
     | 0 -> ()
     | len -> Out_channel.output Out_channel.stdout ~buf:buf ~pos:0 ~len:len;
-      if uflag then oflush;
+      if uflag then Out_channel.(flush stdout);
       rawcatloop ic buf
   in
   match bflag, nflag, vflag, sflag with
