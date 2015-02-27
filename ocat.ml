@@ -63,13 +63,14 @@ let docat file nflag uflag bflag vflag eflag tflag sflag =
           | true, true -> lnum
           | true, false -> succ lnum
         in
+        if uflag then oflush;
         catloop ic nlnum (In_channel.input_char ic) c gobble
   in
   let rec rawcatloop ic buf =
     match In_channel.input ic ~pos:0 ~buf:buf ~len:bufsize with
     | 0 -> ()
     | len -> Out_channel.output Out_channel.stdout ~buf:buf ~pos:0 ~len:len;
-      if uflag = true then oflush;
+      if uflag then oflush;
       rawcatloop ic buf
   in
   match bflag, nflag, vflag, sflag with
