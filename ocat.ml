@@ -44,8 +44,7 @@ let docat file nflag uflag bflag vflag eflag tflag sflag =
           ostr (sprintf "%6d\t" lnum);
         let () = match vflag, isascii c, (iscntrl c) with
           | true, false, true ->
-            ostr "M-";
-            ochar '^';
+            ostr "M-^";
             ochar (cntrlcharv c);
             ochar (toascii c)
           | true, false, false ->
