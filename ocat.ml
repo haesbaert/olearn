@@ -39,7 +39,8 @@ let docat file nflag uflag bflag vflag eflag tflag sflag =
       match ignline with
       | true -> catloop ic lnum (In_channel.input_char ic) c gobble
       | _ ->
-        let supbln = bflag && c = '\n' && prev = '\n' in
+        let supbln = bflag && c = '\n' && prev = '\n' in (* supress blanks *)
+        (* Should we print the line preamble *)
         if nflag && prev = '\n' && not supbln then
           ostr (sprintf "%6d\t" lnum);
         let () = match vflag, isascii c, (iscntrl c) with
@@ -56,10 +57,11 @@ let docat file nflag uflag bflag vflag eflag tflag sflag =
             | '\t', _,    true -> ostr "^I"
             | _ -> ochar c
         in
-        let nlnum = match c, prev, bflag with
-          | '\n', '\n', true -> lnum
-          | '\n', _, _ -> succ lnum
-          | _ -> lnum
+        (* Should we increase the line number *)
+        let nlnum = match c = '\n', supbln with
+          | false, _ -> lnum
+          | true, true -> lnum
+          | true, false -> succ lnum
         in
         catloop ic nlnum (In_channel.input_char ic) c gobble
   in
