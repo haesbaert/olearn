@@ -1,4 +1,5 @@
 open Core.Std
+open Cmdliner
 
 let iscntrl c =
   let c = (int_of_char c) in
@@ -19,7 +20,7 @@ let toascii c =
   | true ->  (char_of_int ((int_of_char c) land 0o177))
   | false -> c
 
-let docat file nflag uflag bflag vflag eflag tflag sflag =
+let cat bflag eflag nflag sflag tflag uflag vflag file =
   let nflag = bflag || nflag in
   let vflag = eflag || tflag || vflag in
   let ochar = Out_channel.output_char Out_channel.stdout in
@@ -75,24 +76,19 @@ let docat file nflag uflag bflag vflag eflag tflag sflag =
   | false, false, false, false -> rawcatloop ic (Bytes.create bufsize)
   | _ -> catloop ic 1 (In_channel.input_char ic) '\n' false
 
-let spec =
-  let open Command.Spec in
-  empty
-  +> flag "-b" no_arg ~doc:" escape empty lines, implies -n"
-  +> flag "-n" no_arg ~doc:" print line numbers"
-  +> flag "-u" no_arg ~doc:" unbuffered output"
-  +> flag "-v" no_arg ~doc:" display non printable characters"
-  +> flag "-e" no_arg ~doc:" implies -v, and display a $ in the EOL"
-  +> flag "-t" no_arg ~doc:" implies -v, and display tabs as ^I"
-  +> flag "-s" no_arg ~doc:" squeeze adjacent newlines"
-  +> anon (maybe_with_default "-" ("filename" %: string))
+(* Build Cmdliner command parser *)
+let bflag = Arg.(value & flag & info ["b"] ~doc:"Escape empty lines, implies -n.")
+let eflag = Arg.(value & flag & info ["e"] ~doc:"Implies -v, and display a $ in the EOL")
+let nflag = Arg.(value & flag & info ["n"] ~doc:"Display non printable characters")
+let sflag = Arg.(value & flag & info ["s"] ~doc:"Squeeze adjacent newlines")
+let tflag = Arg.(value & flag & info ["t"] ~doc:"Implies -v, and display tabs as ^I")
+let uflag = Arg.(value & flag & info ["u"] ~doc:"Print line numbers")
+let vflag = Arg.(value & flag & info ["v"] ~doc:"Unbuffered output")
+let file = Arg.(value & pos 0 string "-" & info [] ~docv:"FILENAME")
 
-let command =
-  Command.basic
-    ~summary:"basic cat implementation."
-    spec
-    (fun bflag nflag uflag vflag eflag tflag sflag filename () ->
-       docat filename nflag uflag bflag vflag eflag tflag sflag)
+let cmd =
+  let doc = "cat clone in ocaml" in
+  Term.(pure cat $ bflag $ eflag $ nflag $ sflag $ tflag $ uflag $ vflag $ file),
+  Term.info "cat" ~version:"1.1" ~doc
 
-let () =
-  Command.run ~version:"1.0" command
+let () = match Term.eval cmd with `Error _ -> exit 1 | _ -> exit 0
