@@ -1,6 +1,3 @@
-open Core.Std
-open Cmdliner
-
 let iscntrl c =
   let c = (int_of_char c) in
   (c >= 0 && c < 32) || c = 127
@@ -23,60 +20,60 @@ let toascii c =
 let cat bflag eflag nflag sflag tflag uflag vflag file =
   let nflag = bflag || nflag in
   let vflag = eflag || tflag || vflag in
-  let ochar = Out_channel.output_char Out_channel.stdout in
-  let ostr = Out_channel.output_string Out_channel.stdout in
+  let ochar = output_char stdout in
+  let ostr = output_string stdout in
   let bufsize = 1024 * 8 in
   let ic = match file with
-    | "-" -> In_channel.stdin
-    | file -> In_channel.create file
+    | "-" -> stdin
+    | file -> open_in file
   in
   let rec catloop ic lnum c prev gobble =
-    match c with
-    | None -> ()
-    | Some c ->
-      let ignline = sflag && gobble && c = '\n' && prev = '\n' in
-      let gobble = prev = '\n' && c = '\n' in
-      match ignline with
-      | true -> catloop ic lnum (In_channel.input_char ic) c gobble
-      | _ ->
-        let supbln = bflag && c = '\n' && prev = '\n' in (* supress blanks *)
-        (* Should we print the line preamble *)
-        if nflag && prev = '\n' && not supbln then
-          ostr (sprintf "%6d\t" lnum);
-        let () = match vflag, isascii c, (iscntrl c) with
-          | true, false, true ->
-            ostr "M-^";
-            ochar (cntrlcharv c);
-            ochar (toascii c)
-          | true, false, false ->
-            ostr "M-";
-            ochar (toascii c)
-          | _ -> match c, eflag, tflag with
-            | '\n', true, _    -> ostr "$\n"
-            | '\t', _,    true -> ostr "^I"
-            | _ -> ochar c
-        in
-        (* Should we increase the line number *)
-        let nlnum = match c = '\n', supbln with
-          | false, _ -> lnum
-          | true, true -> lnum
-          | true, false -> succ lnum
-        in
-        if uflag then Out_channel.(flush stdout);
-        catloop ic nlnum (In_channel.input_char ic) c gobble
+    let ignline = sflag && gobble && c = '\n' && prev = '\n' in
+    let gobble = prev = '\n' && c = '\n' in
+    match ignline with
+    | true -> catloop ic lnum (input_char ic) c gobble
+    | _ ->
+      let supbln = bflag && c = '\n' && prev = '\n' in (* supress blanks *)
+      (* Should we print the line preamble *)
+      if nflag && prev = '\n' && not supbln then
+        ostr (Printf.sprintf "%6d\t" lnum);
+      let () = match vflag, isascii c, (iscntrl c) with
+        | true, false, true ->
+          ostr "M-^";
+          ochar (cntrlcharv c);
+          ochar (toascii c)
+        | true, false, false ->
+          ostr "M-";
+          ochar (toascii c)
+        | _ -> match c, eflag, tflag with
+          | '\n', true, _    -> ostr "$\n"
+          | '\t', _,    true -> ostr "^I"
+          | _ -> ochar c
+      in
+      (* Should we increase the line number *)
+      let nlnum = match c = '\n', supbln with
+        | false, _ -> lnum
+        | true, true -> lnum
+        | true, false -> succ lnum
+      in
+      if uflag then flush stdout;
+      catloop ic nlnum (input_char ic) c gobble
   in
   let rec rawcatloop ic buf =
-    match In_channel.input ic ~pos:0 ~buf:buf ~len:bufsize with
+    match input ic buf 0 bufsize with
     | 0 -> ()
-    | len -> Out_channel.output Out_channel.stdout ~buf:buf ~pos:0 ~len:len;
-      if uflag then Out_channel.(flush stdout);
+    | len -> output stdout buf 0 len;
+      if uflag then flush stdout;
       rawcatloop ic buf
   in
-  match bflag, nflag, vflag, sflag with
-  | false, false, false, false -> rawcatloop ic (Bytes.create bufsize)
-  | _ -> catloop ic 1 (In_channel.input_char ic) '\n' false
+  try
+    match bflag, nflag, vflag, sflag with
+    | false, false, false, false -> rawcatloop ic (Bytes.create bufsize)
+    | _ -> catloop ic 1 (input_char ic) '\n' false
+  with End_of_file -> ()
 
 (* Build Cmdliner command parser *)
+open Cmdliner
 let bflag = Arg.(value & flag & info ["b"] ~doc:"Escape empty lines, implies -n.")
 let eflag = Arg.(value & flag & info ["e"] ~doc:"Implies -v, and display a $ in the EOL")
 let nflag = Arg.(value & flag & info ["n"] ~doc:"Display non printable characters")
