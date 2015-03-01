@@ -27,26 +27,40 @@ let wc ic =
   wcloop 0 0 0 true
 
 let wcfiles cflag lflag wflag files =
-  let printall = cflag = false && lflag = false && wflag = false in
-  let wcinput filename =
-    let ic = match filename with
-      | "-" -> stdin
-      | _   -> open_in filename
-    in
-    let (lines,words,bytes) = wc ic in
+  let printset lines words bytes name =
+    let printall = cflag = false && lflag = false && wflag = false in
     if lflag || printall then
       printf "%8d" lines;
     if wflag || printall then
       printf "%8d" words;
     if cflag || printall then
       printf "%8d" bytes;
+    match name with
+    | "-" -> print_newline ()
+    | _   -> printf " %s\n" name
+  in
+  let wcinput filename =
+    let ic = match filename with
+      | "-" -> stdin
+      | _   -> open_in filename
+    in
+    let (lines,words,bytes) = wc ic in
     if ic <> stdin then
-      (close_in ic; printf " %s" filename);
-    print_newline ()
+      close_in ic;
+    printset lines words bytes filename;
+    (lines,words,bytes)
   in
   match List.length files with
   | 0 -> ignore (wc stdin)
-  | _ -> List.iter wcinput files
+  | _ ->
+    let (lt, wt, ct) =
+      List.fold_left
+        (fun (la,wa,ca) filename ->
+           let l,w,c = wcinput filename in
+           (la+l,wa+w,ca+c))
+        (0,0,0) files
+    in
+    printset lt wt ct "total"
 
 
 open Cmdliner
