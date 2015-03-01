@@ -13,24 +13,27 @@ let countline c l = match c with
   | '\n' -> succ l
   | _    -> l
 
+let wc ic =
+  let rec wcloop lines words bytes inspc =
+    let c = try Some (input_char ic)
+      with End_of_file -> None
+    in
+    match c with
+    | None -> (lines, words, bytes)
+    | Some c -> wcloop (countline c lines)
+                  (countword c inspc words)
+                  (succ bytes) (isspace c)
+  in
+  wcloop 0 0 0 true
+
 let wcfiles cflag lflag wflag files =
   let printall = cflag = false && lflag = false && wflag = false in
-  let wc file =
-    let ic = match file with
+  let wcinput filename =
+    let ic = match filename with
       | "-" -> stdin
-      | _ -> open_in file
+      | _   -> open_in filename
     in
-    let rec wcloop lines words bytes inspc =
-      let c = try Some (input_char ic)
-        with End_of_file -> None
-      in
-      match c with
-      | None -> (lines, words, bytes)
-      | Some c -> wcloop (countline c lines)
-                    (countword c inspc words)
-                    (succ bytes) (isspace c)
-    in
-    let (lines,words,bytes) = wcloop 0 0 0 true in
+    let (lines,words,bytes) = wc ic in
     if lflag || printall then
       printf "%8d" lines;
     if wflag || printall then
@@ -38,13 +41,12 @@ let wcfiles cflag lflag wflag files =
     if cflag || printall then
       printf "%8d" bytes;
     if ic <> stdin then
-      (close_in ic; printf " %s" file);
+      (close_in ic; printf " %s" filename);
     print_newline ()
   in
-  (* main body *)
   match List.length files with
-  | 0 -> wc "-"
-  | _ -> List.iter wc files
+  | 0 -> ignore (wc stdin)
+  | _ -> List.iter wcinput files
 
 
 open Cmdliner
