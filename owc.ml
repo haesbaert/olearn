@@ -27,7 +27,7 @@ let wc ic =
   wcloop 0 0 0 true
 
 let wcfiles cflag lflag wflag files =
-  let printset lines words bytes name =
+  let printset ?name lines words bytes =
     let printall = cflag = false && lflag = false && wflag = false in
     if lflag || printall then
       printf "%8d" lines;
@@ -36,31 +36,37 @@ let wcfiles cflag lflag wflag files =
     if cflag || printall then
       printf "%8d" bytes;
     match name with
-    | "-" -> print_newline ()
-    | _   -> printf " %s\n" name
+    | None      -> print_newline ()
+    | Some name -> printf " %s\n" name
   in
-  let wcinput filename =
-    let ic = match filename with
-      | "-" -> stdin
-      | _   -> open_in filename
+  let wcinput ?file () =
+    let ic = match file with
+      | None      -> stdin
+      | Some file -> open_in file
     in
     let (lines,words,bytes) = wc ic in
     if ic <> stdin then
       close_in ic;
-    printset lines words bytes filename;
+    printset ?name:file lines words bytes;
     (lines,words,bytes)
   in
   match List.length files with
-  | 0 -> ignore (wc stdin)
+  | 0 -> ignore (wcinput ())
+  | 1 -> ignore (wcinput ~file:(List.hd files) ())
   | _ ->
-    let (lt, wt, ct) =
+    let (tlines, twords, tbytes) =
       List.fold_left
-        (fun (la,wa,ca) filename ->
-           let l,w,c = wcinput filename in
-           (la+l,wa+w,ca+c))
+        (fun (alines, awords, abytes) file ->
+           let lines, words, bytes =
+             try
+               wcinput ~file:file ()
+             with Sys_error e -> (* End *)
+               eprintf "%s: %s\n" Sys.executable_name e; (0, 0, 0)
+           in
+           (alines + lines, awords + words, abytes + bytes))
         (0,0,0) files
     in
-    printset lt wt ct "total"
+    printset tlines twords tbytes ~name:"total"
 
 
 open Cmdliner
