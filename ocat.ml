@@ -26,7 +26,7 @@ let catfiles bflag eflag nflag sflag tflag uflag vflag files =
   let cat file =
     let ic = match file with
       | "-" -> stdin
-      | file -> open_in file
+      | _ -> open_in file
     in
     let rec catloop ic lnum c prev gobble =
       let ignline = sflag && gobble && c = '\n' && prev = '\n' in
