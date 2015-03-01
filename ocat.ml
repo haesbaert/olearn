@@ -76,8 +76,10 @@ let catfiles bflag eflag nflag sflag tflag uflag vflag files =
     with End_of_file -> if ic <> stdin then close_in ic
   in
   (* cat main body *)
-  List.iter cat files
-                        
+  match List.length files with
+  | 0 -> cat "-"
+  | _ -> List.iter cat files
+
 (* Build Cmdliner command parser *)
 open Cmdliner
 let bflag = Arg.(value & flag & info ["b"] ~doc:"Escape empty lines, implies -n.")
