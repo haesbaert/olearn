@@ -28,7 +28,7 @@ let wc ic =
 
 let wcfiles cflag lflag wflag files =
   let printset ?name lines words bytes =
-    let printall = cflag = false && lflag = false && wflag = false in
+    let printall = not cflag && not lflag && not wflag in
     if lflag || printall then
       printf "%8d" lines;
     if wflag || printall then
@@ -50,10 +50,10 @@ let wcfiles cflag lflag wflag files =
     printset ?name:file lines words bytes;
     (lines,words,bytes)
   in
-  match List.length files with
-  | 0 -> ignore (wcinput ())
-  | 1 -> ignore (wcinput ~file:(List.hd files) ())
-  | _ ->
+  match files with
+  | [ ] -> ignore (wcinput ())
+  | [_] -> ignore (wcinput ~file:(List.hd files) ())
+  |  _  ->
     let (tlines, twords, tbytes) =
       List.fold_left
         (fun (alines, awords, abytes) file ->
